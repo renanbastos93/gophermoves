@@ -33,7 +33,7 @@ import (
 func main() {
     orderMatrix := 5
     g := gophermoves.New(orderMatrix)
-	  g.Start()
+    g.Start()
 }
 ```
 
