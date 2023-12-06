@@ -2,6 +2,9 @@
 
 GopherMoves is a Go package that provides an interface and an example implementation for simulating the movements of a character, particularly designed for a Gopher character.
 
+https://github.com/renanbastos93/gophermoves/assets/8202898/4ecaa097-08e4-4a67-a80f-a311b6e1af67
+
+
 ## Table of Contents
 
 - [Installation](#installation)
