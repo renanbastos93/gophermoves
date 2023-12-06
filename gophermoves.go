@@ -100,7 +100,7 @@ func (e implMoves) print(msg string) {
 }
 
 func (e *implMoves) scan() {
-	e.print(initMsg)
+	e.show()
 	s := e.in
 	for e.in.Scan() {
 		switch {
