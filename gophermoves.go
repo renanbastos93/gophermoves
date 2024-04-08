@@ -1,17 +1,18 @@
 package gophermoves
 
 import (
-	"bufio"
 	"bytes"
 	"os"
 	"strings"
+
+	"golang.org/x/term"
 )
 
 // Moves is an interface that defines methods to simulate movements for the character like Gopher
 type Moves interface {
 
 	// Start will initiate the play to simulate movements for the character
-	Start()
+	Start() (err error)
 
 	// Reset will redefine the default states of the X and Y positions
 	Reset()
@@ -36,11 +37,12 @@ type implMoves struct {
 
 	matrix int
 
-	in  *bufio.Scanner
-	out *bufio.Writer
+	fd int
 
 	move  chan struct{}
 	close chan struct{}
+
+	term *term.State
 }
 
 const (
@@ -61,21 +63,29 @@ var (
 	RightUpperCase = []byte(`D`)
 	ResetUpperCase = []byte(`R`)
 
-	initMsg       = "Move your char: [W,S,A,D] == [UP,DOWN,LEFT,RIGHT]\n"
+	QuitLowerCase = []byte(`q`)
+	QuitUpperCase = []byte(`Q`)
+
+	QuitUsingCtrlC = []byte{3}
+
+	initMsg       = "Move your char: [W,S,A,D] == [UP,DOWN,LEFT,RIGHT]\r\n"
 	cleanTerminal = "\033[H\033[2J"
 )
 
 // New will create and return a new instance that satisfies the Moves interface for Gopher
 func New(m int) Moves {
-	return &implMoves{
+	e := &implMoves{
 		positionX: 0,
 		positionY: 0,
 		matrix:    m,
-		in:        bufio.NewScanner(os.Stdin),
-		out:       bufio.NewWriter(os.Stdout),
 		move:      make(chan struct{}, 1),
 		close:     make(chan struct{}, 1),
+		term:      nil,
 	}
+
+	e.fd = int(os.Stdin.Fd())
+
+	return e
 }
 
 func (e *implMoves) Up() {
@@ -95,30 +105,33 @@ func (e *implMoves) Left() {
 }
 
 func (e implMoves) print(msg string) {
-	_, _ = e.out.WriteString(msg)
-	_ = e.out.Flush()
+	_, _ = os.Stdin.WriteString(msg)
 }
 
 func (e *implMoves) scan() {
-	e.show()
-	s := e.in
-	for e.in.Scan() {
+	var b = make([]byte, 1)
+	for {
+		_, _ = os.Stdin.Read(b)
 		switch {
-		case bytes.Equal(s.Bytes(), UpLowerCase) || bytes.Equal(s.Bytes(), UpUpperCase):
+		case bytes.Equal(b, UpLowerCase) || bytes.Equal(b, UpUpperCase):
 			e.Up()
 			e.move <- struct{}{}
-		case bytes.Equal(s.Bytes(), DownLowerCase) || bytes.Equal(s.Bytes(), DownUpperCase):
+		case bytes.Equal(b, DownLowerCase) || bytes.Equal(b, DownUpperCase):
 			e.Down()
 			e.move <- struct{}{}
-		case bytes.Equal(s.Bytes(), LeftLowerCase) || bytes.Equal(s.Bytes(), LeftUpperCase):
+		case bytes.Equal(b, LeftLowerCase) || bytes.Equal(b, LeftUpperCase):
 			e.Left()
 			e.move <- struct{}{}
-		case bytes.Equal(s.Bytes(), RightLowerCase) || bytes.Equal(s.Bytes(), RightUpperCase):
+		case bytes.Equal(b, RightLowerCase) || bytes.Equal(b, RightUpperCase):
 			e.Right()
 			e.move <- struct{}{}
-		case bytes.Equal(s.Bytes(), ResetLowerCase) || bytes.Equal(s.Bytes(), ResetUpperCase):
+		case bytes.Equal(b, ResetLowerCase) || bytes.Equal(b, ResetUpperCase):
 			e.Reset()
 			e.move <- struct{}{}
+		case bytes.Equal(b, QuitLowerCase) || bytes.Equal(b, QuitUpperCase):
+			e.close <- struct{}{}
+		case bytes.Equal(b, QuitUsingCtrlC):
+			e.close <- struct{}{}
 		}
 	}
 }
@@ -159,7 +172,7 @@ func (e *implMoves) show() {
 	wh = e.limitPositions(wh)
 	for i := 0; i < len(wh); i++ {
 		msgShow += strings.Join(wh[i], "  ")
-		msgShow += "\n"
+		msgShow += "\r\n"
 	}
 
 	e.print(msgShow)
@@ -170,7 +183,10 @@ func (e *implMoves) Reset() {
 	e.positionY = 0
 }
 
-func (e *implMoves) Start() {
+func (e *implMoves) Start() (err error) {
+	e.makeTerm()
+	e.show()
+
 	go e.scan()
 	for {
 		select {
@@ -180,4 +196,12 @@ func (e *implMoves) Start() {
 			return
 		}
 	}
+}
+
+func (e *implMoves) makeTerm() {
+	t, err := term.MakeRaw(e.fd)
+	if err != nil {
+		panic(err)
+	}
+	e.term = t
 }
