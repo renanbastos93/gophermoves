@@ -26,14 +26,15 @@ go get -u github.com/renanbastos93/gophermoves
 ```go
 package main
 
-import (
-	"github.com/renanbastos93/gophermoves"
-)
+import "github.com/renanbastos93/gophermoves"
 
 func main() {
-    orderMatrix := 5
-    g := gophermoves.New(orderMatrix)
-    g.Start()
+	orderMatrix := 5
+	g := gophermoves.New(orderMatrix)
+	err := g.Start()
+	if err != nil {
+		panic(err.Error())
+	}
 }
 ```
 
@@ -41,7 +42,7 @@ func main() {
 
 The GopherMoves interface provides the following methods:
 
-- `Start()`: Initiates movements for the character.
+- `Start() (err error)`: Initiates movements for the character.
 - `Reset()`: Redefines the default states of the X and Y positions.
 - `Up()`: Moves the character upward.
 - `Down()`: Moves the character downward.
